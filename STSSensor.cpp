@@ -62,36 +62,37 @@ const uint8_t STSI2cSensor::CMD_SIZE            = 2;
 const uint8_t STSI2cSensor::EXPECTED_DATA_SIZE  = 3;		//two bytes + CRC
 const uint8_t STSI2cSensor::MAX_I2C_READ_TRIES  = 5;
 
-bool STSI2cSensor::readFromI2c(uint8_t i2cAddress,
+bool STSI2cSensor::readFromI2c(TwoWire localWire,
+					    uint8_t i2cAddress,
                                const uint8_t *i2cCommand,
                                uint8_t commandLength, uint8_t *data,
                                uint8_t dataLength)
 {
-  Wire.beginTransmission(i2cAddress);
+  localWire.beginTransmission(i2cAddress);
+  
   for (int i = 0; i < commandLength; ++i) {
-    if (Wire.write(i2cCommand[i]) != 1) {
+    if (localWire.write(i2cCommand[i]) != 1) {
       return false;
     }
   }
-
-  if (Wire.endTransmission(false) != 0) {
+    if (localWire.endTransmission(false) != 0) {
     return false;
   }
-
-  Wire.requestFrom(i2cAddress, dataLength);
+  
+  localWire.requestFrom(i2cAddress, dataLength);
 
   // there should be no reason for this to not be ready, since we're using clock
   // stretching mode, but just in case we'll try a few times
   uint8_t tries = 1;
-  while (Wire.available() < dataLength) {
+  while (localWire.available() < dataLength) {
     delay(1);
     if (tries++ >= MAX_I2C_READ_TRIES) {
       return false;
     }
   }
-
+  
   for (int i = 0; i < dataLength; ++i) {
-    data[i] = Wire.read();
+    data[i] = localWire.read();
   }
   return true;
 }
@@ -124,8 +125,8 @@ bool STSI2cSensor::readSample()
 
   cmd[0] = mI2cCommand >> 8;
   cmd[1] = mI2cCommand & 0xff;
-
-  if (!readFromI2c(mI2cAddress, cmd, CMD_SIZE, data,
+  
+  if (!readFromI2c(mI2cWire, mI2cAddress, cmd, CMD_SIZE, data,
                    EXPECTED_DATA_SIZE)) {
     return false;
   }
@@ -163,8 +164,8 @@ public:
   static const uint8_t STS3X_I2C_ADDRESS_44 = 0x4A;
   static const uint8_t STS3X_I2C_ADDRESS_45 = 0x4B;
 
-  STS3xSensor(uint8_t i2cAddress = STS3X_I2C_ADDRESS_44)
-      : STSI2cSensor(i2cAddress, STS3X_ACCURACY_HIGH,
+  STS3xSensor(TwoWire i2cWire, uint8_t i2cAddress = STS3X_I2C_ADDRESS_44)
+      : STSI2cSensor( i2cWire, i2cAddress, STS3X_ACCURACY_HIGH,
                      -45, 175, 65535)							//100, 65535
   {
   }
@@ -199,19 +200,21 @@ const STSSensor::STSSensorType STSSensor::AUTO_DETECT_SENSORS[] = {
 };
 const float STSSensor::TEMPERATURE_INVALID = NAN;
 
-bool STSSensor::init()
+bool STSSensor::init( TwoWire i2cWire )
 {
+  mI2cWire = i2cWire;	
+
   if (mSensor != NULL) {
     cleanup();
   }
 
   switch(mSensorType) {
     case STS3X:
-      mSensor = new STS3xSensor();
+      mSensor = new STS3xSensor( i2cWire );
       break;
 
     case STS3X_ALT:
-      mSensor = new STS3xSensor(STS3xSensor::STS3X_I2C_ADDRESS_45);
+      mSensor = new STS3xSensor( i2cWire, STS3xSensor::STS3X_I2C_ADDRESS_45);
       break;
 
     case AUTO_DETECT:
@@ -221,7 +224,8 @@ bool STSSensor::init()
            i < sizeof(AUTO_DETECT_SENSORS) / sizeof(AUTO_DETECT_SENSORS[0]);
            ++i) {
         mSensorType = AUTO_DETECT_SENSORS[i];
-        if (init() && readSample()) {
+
+        if (init(i2cWire) && readSample()) {
           detected = true;
           break;
         }

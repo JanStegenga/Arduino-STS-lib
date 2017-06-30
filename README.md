@@ -1,9 +1,13 @@
+#
+# Adapted from arduino-sht library
+# Jan Stegenga,
+# EVAbits,
+# 26-6-2017
+#
+
+
 # arduino-sts
-Repository for Sensirion temperature sensor support on Arduino. <br />
-Adapted from arduino-sht library. <br />
- Jan Stegenga, <br />
- EVAbits, <br />
- 26-6-2017 
+Repository for Sensirion temperature sensor support on Arduino
 
 ## Supported sensors:
 - STS3x-DIS (I2C)
@@ -45,7 +49,7 @@ void setup() {
 
   Wire.begin();
   Serial.begin(9600);
-  sts.init();
+  sta.init();
 }
 
 void loop() {

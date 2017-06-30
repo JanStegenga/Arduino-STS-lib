@@ -90,8 +90,9 @@ public:
    * By default, the i2c bus is queried for known STS Sensors. To address
    * a specific sensor, set the `sensorType'.
    */
-  STSSensor(STSSensorType sensorType = AUTO_DETECT)
-      : mSensorType(sensorType),
+  STSSensor(TwoWire i2cWire, STSSensorType sensorType = AUTO_DETECT)
+      : mI2cWire(i2cWire),
+	   mSensorType(sensorType),
         mSensor(NULL),
         mTemperature(STSSensor::TEMPERATURE_INVALID)
   {
@@ -105,7 +106,7 @@ public:
    * Initialize the sensor driver
    * To read out the sensor use readSample(), followed by getTemperature() 
    */
-  bool init();
+  bool init(TwoWire i2cWire);
 
   /**
    * Read new values from the sensor
@@ -133,7 +134,7 @@ private:
   STSSensorType mSensorType;
   STSSensorDriver *mSensor;
   float mTemperature;
-  float mHumidity;
+  TwoWire mI2cWire;
 };
 
 
@@ -180,13 +181,10 @@ public:
    * the sensor and the values `a', `b', `c' to convert the fixed-point
    * temperature value received by the sensor to a floating point value using
    * the formula: temperature = a + b * (rawTemperature / c)
-   * and the values `x' and `y' to convert the fixed-point humidity value
-   * received by the sensor to a floating point value using the formula:
-   * humidity = x * (rawHumidity / y)
    */
-  STSI2cSensor(uint8_t i2cAddress, uint16_t i2cCommand,
+  STSI2cSensor(TwoWire i2cWire, uint8_t i2cAddress, uint16_t i2cCommand,
                float a, float b, float c)
-      : mI2cAddress(i2cAddress), mI2cCommand(i2cCommand),
+      : mI2cWire(i2cWire) , mI2cAddress(i2cAddress), mI2cCommand(i2cCommand),
         mA(a), mB(b), mC(c)
   {
   }
@@ -202,11 +200,13 @@ public:
   float mA;
   float mB;
   float mC;
+  TwoWire mI2cWire;
 
 private:
   static const uint8_t MAX_I2C_READ_TRIES;
   static uint8_t crc8(const uint8_t *data, uint8_t len);
-  static bool readFromI2c(uint8_t i2cAddress,
+  static bool readFromI2c(TwoWire localWire,
+				     uint8_t i2cAddress,
                           const uint8_t *i2cCommand,
                           uint8_t commandLength, uint8_t *data,
                           uint8_t dataLength);
